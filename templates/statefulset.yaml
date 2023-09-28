@@ -1,26 +1,26 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: tg-watch-api
+  name: tg-k8s-watch
   labels:
-    app: tg-watch-api
+    app: tg-k8s-watch
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: tg-watch-api
-  serviceName: tg-watch-api
+      app: tg-k8s-watch
+  serviceName: tg-k8s-watch
   template:
     metadata:
       labels:
-        app: tg-watch-api
+        app: tg-k8s-watch
     spec:
       containers:
-        - name: tg-watch-api
-          image: ghcr.io/twingate-labs/tg-watch-api:latest
+        - name: tg-k8s-watch
+          image: ghcr.io/twingate-labs/tg-k8s-watch:latest
           workingDir: /usr/src/app
           command: [ "node", "app.mjs" ]
           imagePullPolicy: Always
           envFrom:
             - secretRef:
-                name: tg-watch-api
+                name: tg-k8s-watch
