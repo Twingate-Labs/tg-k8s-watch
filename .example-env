@@ -2,4 +2,6 @@ TG_API_KEY=xxx
 TG_ACCOUNT=xxxx.twingate.com
 TG_REMOTE_NETWORK=watch_api_test
 TG_GROUP_NAME=DevOps
-DOMAIN_LIST=.example.com,.example2.com
+INGRESS_DOMAIN_LIST=.example.com,.example2.com
+CLUSTER_DOMAIN=.cluster.local
+NAMESPACE_TO_WATCH=default,agentlesstest

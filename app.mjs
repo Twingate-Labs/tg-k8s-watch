@@ -16,7 +16,7 @@ const delay = async (ms) => new Promise(resolve => setTimeout(resolve, ms));
 const watch = new k8s.Watch(kc);
 
 
-let [remoteNetwork, domainList, group] = [process.env.TG_REMOTE_NETWORK, process.env.DOMAIN_LIST.split(","), process.env.TG_GROUP_NAME];
+let [remoteNetwork, domainList, group, clusterDomain, namespaceToWatch] = [process.env.TG_REMOTE_NETWORK, process.env.INGRESS_DOMAIN_LIST.split(","), process.env.TG_GROUP_NAME, process.env.CLUSTER_DOMAIN, process.env.NAMESPACE_TO_WATCH];
 
 
 const main = async () => {
@@ -58,7 +58,7 @@ const watchForIngressChanges = async (utilManager, remoteNetworkId, groupId, res
 
     let lock = new AsyncLock()
 
-    let hosts = [];
+    let ingressHosts = [];
 
     const req = await watch.watch(
         '/apis/networking.k8s.io/v1/ingresses',
@@ -69,11 +69,16 @@ const watchForIngressChanges = async (utilManager, remoteNetworkId, groupId, res
                 return;
             }
 
+            if (!apiObj.includes(apiObj.meta.namespace)) {
+                console.log(`Skipping: service '${apiObj.metadata.name} is not part of namespace list.`)
+                return
+            }
+
             const host = apiObj.spec.rules[0].host;
 
             // Check if the ingress host is part of the domain list
             if (domainList.filter(domainList => host.endsWith(domainList)).length !== 0) {
-                if (hosts.includes(host)) {
+                if (ingressHosts.includes(host)) {
                     console.log(`Skipping: ingress resource '${host}' with name '${apiObj.metadata.name}'- resource being created`);
                     return
                 }
@@ -85,7 +90,7 @@ const watchForIngressChanges = async (utilManager, remoteNetworkId, groupId, res
 
             lock.acquire(host, async function() {
 
-                if (hosts.includes(host)) {
+                if (ingressHosts.includes(host)) {
                     console.log(`Skipping: ingress resource '${host}' with name '${apiObj.metadata.name}' - resource being created`);
                     return
                 }
@@ -94,9 +99,9 @@ const watchForIngressChanges = async (utilManager, remoteNetworkId, groupId, res
                     console.log(`Skipping: ingress resource '${host}' with name '${apiObj.metadata.name}' has already been created in remote network ${remoteNetwork} previously.`);
                     return;
                 }
-                hosts.push(host);
+                ingressHosts.push(host);
                 await utilManager.createResource(apiObj.metadata.name, host, remoteNetworkId, undefined, groupId);
-                console.log(`New Ingress Found: creating resource '${host}' with name '${apiObj.metadata.name}' in remote network ${remoteNetwork}`);
+                console.log(`New Ingress Found: creating ingress resource '${host}' with name '${apiObj.metadata.name}' in remote network ${remoteNetwork}`);
 
             }, function(err, ret) {
 
@@ -122,7 +127,7 @@ const watchForServiceChanges = async (utilManager, remoteNetworkId, groupId, res
 
     let lock = new AsyncLock()
 
-    let hosts = [];
+    let serviceHosts = [];
 
     const req = await watch.watch(
         '/api/v1/services',
@@ -134,34 +139,33 @@ const watchForServiceChanges = async (utilManager, remoteNetworkId, groupId, res
                 return;
             }
 
-            const host = apiObj;
-            console.log("|||||||||||||||||")
-            console.log(host)
+            if (!apiObj.includes(apiObj.meta.namespace)) {
+                console.log(`Skipping: service '${apiObj.metadata.name} is not part of namespace list.`)
+                return
+            }
 
+            const host = `${apiObj.metadata.name}/${apiObj.meta.namespace}.svc.${clusterDomain}`;
 
-
-            // if (hosts.includes(host)) {
-            //     console.log(`Skipping: service resource '${host}' with name '${apiObj.metadata.name}'- resource being created`);
-            //     return
-            // }
+            if (serviceHosts.includes(host)) {
+                console.log(`Skipping: service resource '${host}' with name '${apiObj.metadata.name}'- resource being created`);
+                return
+            }
 
 
             lock.acquire(host, async function() {
 
+                if (serviceHosts.includes(host)) {
+                    console.log(`Skipping: service resource '${host}' with name '${apiObj.metadata.name}' - resource being created`);
+                    return
+                }
 
-
-                // if (hosts.includes(host)) {
-                //     console.log(`Skipping: service resource '${host}' with name '${apiObj.metadata.name}' - resource being created`);
-                //     return
-                // }
-                //
-                // if (resources.map(resource => resource.address.value).includes(host)) {
-                //     console.log(`Skipping: service resource '${host}' with name '${apiObj.metadata.name}' has already been created in remote network ${remoteNetwork} previously.`);
-                //     return;
-                // }
-                // hosts.push(host);
-                // await utilManager.createResource(apiObj.metadata.name, host, remoteNetworkId, undefined, groupId);
-                // console.log(`New Ingress Found: creating resource '${host}' with name '${apiObj.metadata.name}' in remote network ${remoteNetwork}`);
+                if (resources.map(resource => resource.address.value).includes(host)) {
+                    console.log(`Skipping: service resource '${host}' with name '${apiObj.metadata.name}' has already been created in remote network ${remoteNetwork} previously.`);
+                    return;
+                }
+                serviceHosts.push(host);
+                await utilManager.createResource(apiObj.metadata.name, host, remoteNetworkId, undefined, groupId);
+                console.log(`New Service Found: creating service resource '${host}' with name '${apiObj.metadata.name}' in remote network ${remoteNetwork}`);
 
             }, function(err, ret) {
 
