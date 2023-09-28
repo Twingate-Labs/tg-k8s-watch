@@ -125,7 +125,7 @@ const watchForServiceChanges = async (utilManager, remoteNetworkId, groupId, res
     let hosts = [];
 
     const req = await watch.watch(
-        '/apis/networking.k8s.io/v1/services',
+        '/api/v1/services',
         {},
         async (type, apiObj) => {
             console.log("|||||||||||||||||")
