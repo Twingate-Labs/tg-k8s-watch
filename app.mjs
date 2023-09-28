@@ -33,7 +33,15 @@ const main = async () => {
         let continueWatch = true;
         while (continueWatch) {
             resources = await utilManager.fetchAllResourcesInRemoteNetwork(remoteNetworkId);
-            continueWatch = await watchForChanges(utilManager, remoteNetworkId, groupId, resources);
+            continueWatch = await Promise.all([
+                watchForIngressChanges(utilManager, remoteNetworkId, groupId, resources),
+                watchForServiceChanges(utilManager, remoteNetworkId, groupId, resources),
+            ])
+            // continueWatch = continueWatch[0] && continueWatch[1]
+            console.log("-------")
+            console.log(continueWatch)
+            console.log(continueWatch[0] && continueWatch[1])
+            console.log(continueWatch[0] || continueWatch[1])
         }
 
     } catch (err) {
@@ -43,8 +51,8 @@ const main = async () => {
 };
 
 
-const watchForChanges = async (utilManager, remoteNetworkId, groupId, resources) => {
-    console.log("Start or Restarting Watching For Changes.")
+const watchForIngressChanges = async (utilManager, remoteNetworkId, groupId, resources) => {
+    console.log("Start or Restarting Watching For Ingress Changes.")
     let continueWatch = true;
     // Start watch for K8S ingress changes
 
@@ -57,7 +65,7 @@ const watchForChanges = async (utilManager, remoteNetworkId, groupId, resources)
         {},
         async (type, apiObj) => {
             if (type != 'ADDED') {
-                console.log('unknown type: ' + type);
+                console.log('Ingress watch unknown type: ' + type);
                 return;
             }
 
@@ -66,7 +74,7 @@ const watchForChanges = async (utilManager, remoteNetworkId, groupId, resources)
             // Check if the ingress host is part of the domain list
             if (domainList.filter(domainList => host.endsWith(domainList)).length !== 0) {
                 if (hosts.includes(host)) {
-                    console.log(`Skipping: resource '${host}' with name '${apiObj.metadata.name}'- resource being created`);
+                    console.log(`Skipping: ingress resource '${host}' with name '${apiObj.metadata.name}'- resource being created`);
                     return
                 }
             }
@@ -78,17 +86,78 @@ const watchForChanges = async (utilManager, remoteNetworkId, groupId, resources)
             lock.acquire(host, async function() {
 
                 if (hosts.includes(host)) {
-                    console.log(`Skipping: resource '${host}' with name '${apiObj.metadata.name}' - resource being created`);
+                    console.log(`Skipping: ingress resource '${host}' with name '${apiObj.metadata.name}' - resource being created`);
                     return
                 }
 
                 if (resources.map(resource => resource.address.value).includes(host)) {
-                    console.log(`Skipping: resource '${host}' with name '${apiObj.metadata.name}' has already been created in remote network ${remoteNetwork} previously.`);
+                    console.log(`Skipping: ingress resource '${host}' with name '${apiObj.metadata.name}' has already been created in remote network ${remoteNetwork} previously.`);
                     return;
                 }
                 hosts.push(host);
                 await utilManager.createResource(apiObj.metadata.name, host, remoteNetworkId, undefined, groupId);
                 console.log(`New Ingress Found: creating resource '${host}' with name '${apiObj.metadata.name}' in remote network ${remoteNetwork}`);
+
+            }, function(err, ret) {
+
+            }, {});
+
+
+        },
+        // done callback is called if the watch terminates normally
+        (err) => {
+            console.warn(`Ingress watch error: ${err}. This message should be harmless.`);
+        },
+    );
+
+    // Watch for x ms before starting a new watch api call
+    await delay(600000);
+    return continueWatch;
+}
+
+const watchForServiceChanges = async (utilManager, remoteNetworkId, groupId, resources) => {
+    console.log("Start or Restarting Watching For Service Changes.")
+    let continueWatch = true;
+    // Start watch for K8S ingress changes
+
+    let lock = new AsyncLock()
+
+    let hosts = [];
+
+    const req = await watch.watch(
+        '/apis/networking.k8s.io/v1/services',
+        {},
+        async (type, apiObj) => {
+            if (type != 'ADDED') {
+                console.log('unknown type: ' + type);
+                return;
+            }
+
+            const host = apiObj;
+
+            // if (hosts.includes(host)) {
+            //     console.log(`Skipping: service resource '${host}' with name '${apiObj.metadata.name}'- resource being created`);
+            //     return
+            // }
+
+
+            lock.acquire(host, async function() {
+
+                console.log("|||||||||||||||||")
+                console.log(host)
+
+                // if (hosts.includes(host)) {
+                //     console.log(`Skipping: service resource '${host}' with name '${apiObj.metadata.name}' - resource being created`);
+                //     return
+                // }
+                //
+                // if (resources.map(resource => resource.address.value).includes(host)) {
+                //     console.log(`Skipping: service resource '${host}' with name '${apiObj.metadata.name}' has already been created in remote network ${remoteNetwork} previously.`);
+                //     return;
+                // }
+                // hosts.push(host);
+                // await utilManager.createResource(apiObj.metadata.name, host, remoteNetworkId, undefined, groupId);
+                // console.log(`New Ingress Found: creating resource '${host}' with name '${apiObj.metadata.name}' in remote network ${remoteNetwork}`);
 
             }, function(err, ret) {
 
