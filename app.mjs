@@ -128,12 +128,19 @@ const watchForServiceChanges = async (utilManager, remoteNetworkId, groupId, res
         '/apis/networking.k8s.io/v1/services',
         {},
         async (type, apiObj) => {
+            console.log("|||||||||||||||||")
+            console.log(host)
+
             if (type != 'ADDED') {
-                console.log('unknown type: ' + type);
+                console.log('Service watch unknown type: ' + type);
                 return;
             }
 
             const host = apiObj;
+            console.log("|||||||||||||||||")
+            console.log(host)
+
+
 
             // if (hosts.includes(host)) {
             //     console.log(`Skipping: service resource '${host}' with name '${apiObj.metadata.name}'- resource being created`);
@@ -143,8 +150,7 @@ const watchForServiceChanges = async (utilManager, remoteNetworkId, groupId, res
 
             lock.acquire(host, async function() {
 
-                console.log("|||||||||||||||||")
-                console.log(host)
+
 
                 // if (hosts.includes(host)) {
                 //     console.log(`Skipping: service resource '${host}' with name '${apiObj.metadata.name}' - resource being created`);
