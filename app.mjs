@@ -128,8 +128,6 @@ const watchForServiceChanges = async (utilManager, remoteNetworkId, groupId, res
         '/api/v1/services',
         {},
         async (type, apiObj) => {
-            console.log("|||||||||||||||||")
-            console.log(host)
 
             if (type != 'ADDED') {
                 console.log('Service watch unknown type: ' + type);

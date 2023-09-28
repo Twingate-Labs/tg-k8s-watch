@@ -4,5 +4,8 @@ metadata:
   name: ingresses-list
 rules:
   - apiGroups: ["networking.k8s.io"]
-    resources: ["ingresses", "services"]
+    resources: ["ingresses"]
     verbs: ["watch", "list"]
+  - apiGroups: [ "" ]
+    resources: [ "services" ]
+    verbs: [ "watch", "list" ]
